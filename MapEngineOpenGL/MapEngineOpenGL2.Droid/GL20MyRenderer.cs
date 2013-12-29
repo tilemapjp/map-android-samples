@@ -1,16 +1,26 @@
 using System;
-using Android.Content;
+#if __ANDROID__
 using Javax.Microedition.Khronos.Opengles;
 using Android.Opengl;
 using Javax.Microedition.Khronos.Egl;
-using Java.Nio;
 using Java.Lang;
+using OpenTK.Platform.Android;
+#elif __IOS__
+using OpenTK.Platform.iPhoneOS;
+#endif
+using OpenTK;
+using OpenTK.Graphics;
+using OpenTK.Graphics.ES20;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
+#if __ANDROID__
 	public class GL20MyRenderer : Java.Lang.Object, GLSurfaceView.IRenderer
+#elif __IOS__
+	public class GL20MyRenderer 
+#endif
 	{
-		private MapView mMapView;        //MapView
+		private MapController mSC;        //MapController
 		private Shader mShader;                //定義したShader
 		private int muProjMatrix;        //投影変換用行列のハンドル
 		private int muViewMatrix;        //視点変換用行列のハンドル
@@ -18,6 +28,7 @@ namespace MapEngineOpenGL2
 		private int mVertexId;        //頂点データのVRAMの位置
 		private int mNumVertices;        //頂点数
 		private int mAPosition;        //位置ハンドル
+		private byte[] mVertices;
 		private GMatrix mFrontProjectionMatrix;        //コントローラーからの受け取り用投影変換用行列
 		private GMatrix mFrontModelViewMatrix;        //コントローラーからの受け取り用視点変換用行列
 		private GMatrix mBackProjectionMatrix;        //描画用投影変換用行列
@@ -27,15 +38,13 @@ namespace MapEngineOpenGL2
 
 		/*		*
          * コンストラクタ
-         * @param context
-         * @param parent
          * @param mapView
          */
-		public GL20MyRenderer(Context context, GL20SurfaceView parent , MapView mapView) : base ()
+		public GL20MyRenderer(MapController SC) : base ()
 		{
-			mMapView = mapView;
+			mSC = SC;
 			mShader = new Shader();
-			mCoordList = mMapView.GetCoordinateList();
+			mCoordList = mSC.CoordList;
 			mFrontProjectionMatrix = new GMatrix();
 			mFrontModelViewMatrix = new GMatrix();
 			mBackProjectionMatrix = new GMatrix();
@@ -54,52 +63,76 @@ namespace MapEngineOpenGL2
 			}
 		}
 
-		public void OnDrawFrame(IGL10 arg0) {
+#if __ANDROID__
+		public void OnDrawFrame(IGL10 arg0)
+#elif __IOS__
+		public void OnDrawFrame() 
+#endif
+		{
 			lock (mFrontModelViewMatrix) {
 				mFrontModelViewMatrix.Copy(mBackModelViewMatrix);
 				mFrontProjectionMatrix.Copy(mBackProjectionMatrix);
 			}
 			//行列をセット
-			GLES20.GlUniformMatrix4fv(muViewMatrix, 1, false, mBackModelViewMatrix.matrix, 0);
-			GLES20.GlUniformMatrix4fv(muProjMatrix, 1, false, mBackProjectionMatrix.matrix, 0);
+			GL.UniformMatrix4 (muViewMatrix, false, ref mBackModelViewMatrix.matrix);
+			GL.UniformMatrix4 (muProjMatrix, false, ref mBackProjectionMatrix.matrix);
 
 			//背景色を設定します。
-			GLES20.GlClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
-			GLES20.GlClear(GLES20.GlColorBufferBit);
+			GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			GL.Clear (ClearBufferMask.ColorBufferBit);
 
 			//線幅を設定します
-			GLES20.GlLineWidth(2.0f);
+			GL.LineWidth (2.0f);
 
 			//頂点バッファを設定します
-			GLES20.GlBindBuffer(GLES20.GlArrayBuffer, mVertexId);
-			GLES20.GlVertexAttribPointer(mAPosition, 3, GLES20.GlFloat, false, FSIZE*3, 0);
+			GL.BindBuffer (All.ArrayBuffer, mVertexId);
+			int a = 0;
+			GL.VertexAttribPointer (mAPosition, 3, All.Float, false, FSIZE * 3, (IntPtr)a); 
 
 			//描画
-			GLES20.GlDrawArrays(GLES20.GlLineStrip, 0, mNumVertices);        
+			GL.DrawArrays (All.LineStrip, 0, mNumVertices);
 		}
 
-		public void OnSurfaceChanged(IGL10 arg0, int width, int height) {
+#if __ANDROID__
+		public void OnSurfaceChanged(IGL10 arg0, int width, int height) 
+#elif __IOS__
+		public void OnSurfaceChanged(int width, int height)
+#endif
+		{
 			//ビューポートの設定します。
-			GLES20.GlViewport(0,0,width,height);
+			GL.Viewport(0,0,width,height);
 			//再描画
-			mMapView.Redraw();
+			mSC.SetPosition ();
 		}
 
-		public void OnSurfaceCreated(IGL10 arg0, Javax.Microedition.Khronos.Egl.EGLConfig arg1) {
-			//位置ハンドル（a_Position）の取得と有効化。
+#if __ANDROID__
+		public void OnSurfaceCreated(IGL10 arg0, Javax.Microedition.Khronos.Egl.EGLConfig arg1) 
+#elif __IOS__
+		public void OnSurfaceCreated() 
+#endif
+		{
 			int program = mShader.InitShaders();
-			mAPosition = GLES20.GlGetAttribLocation(program, "a_Position");
+#if __ANDROID__
+			mAPosition = GL.GetAttribLocation (program, new System.Text.StringBuilder("a_Position"));
+#elif __IOS__
+			mAPosition = GL.GetAttribLocation (program, "a_Position");
+#endif
 			if (mAPosition == -1) {
-				throw new RuntimeException("a_Positionの格納場所の取得に失敗");
+				//throw new RuntimeException("a_Positionの格納場所の取得に失敗");
 			}
-			GLES20.GlEnableVertexAttribArray(mAPosition);
+			GL.EnableVertexAttribArray (mAPosition);
 			mNumVertices = InitVertexBuffers(); 
 
 			//ビューボリュームと視点の格納場所を取得し、を登録します。
-			muViewMatrix = GLES20.GlGetUniformLocation(program, "u_ViewMatrix");
-			muProjMatrix = GLES20.GlGetUniformLocation(program, "u_ProjMatrix");
+#if __ANDROID__
+			muViewMatrix = GL.GetUniformLocation (program, new System.Text.StringBuilder("u_ViewMatrix"));
+			muProjMatrix = GL.GetUniformLocation (program, new System.Text.StringBuilder("u_ProjMatrix"));
+#elif __IOS__
+			muViewMatrix = GL.GetUniformLocation (program, "u_ViewMatrix");
+			muProjMatrix = GL.GetUniformLocation (program, "u_ProjMatrix");
+#endif
 			if (muViewMatrix == -1 || muProjMatrix == -1) {
-				throw new RuntimeException("a_Positionの格納場所の取得に失敗");
+				//throw new RuntimeException("a_Positionの格納場所の取得に失敗");
 			}
 		}
 
@@ -108,33 +141,33 @@ namespace MapEngineOpenGL2
          * @return
          */
 		public int InitVertexBuffers() {
-			//FloatBufferオブジェクトを作成します。
-			FloatBuffer vertices = makeFloatBuffer(mCoordList);
+			//byte[]を作成します。
+			mVertices = MakeByteArray (mCoordList);
 			int vertex_num = mCoordList.Length / 3;        //頂点数        
 
 			//VRAMにデータを設定します。
 			int[] vertexId = new int[1];
-			GLES20.GlGenBuffers(1, vertexId, 0);
-			GLES20.GlBindBuffer(GLES20.GlArrayBuffer, vertexId[0]);
-			GLES20.GlBufferData(GLES20.GlArrayBuffer, FSIZE * vertices.Limit(), vertices, GLES20.GlStaticDraw);
+			GL.GenBuffers (1, vertexId);
+			GL.BindBuffer (All.ArrayBuffer, vertexId [0]);
+			GL.BufferData (All.ArrayBuffer, (IntPtr)mVertices.Length, mVertices, All.StaticDraw);
 			mVertexId = vertexId[0];
 
 			return vertex_num;
 		}
 
 		/**
-         * フロート配列からフロートバッファを作成します。
+         * フロート配列からbyte[]を作成します。
          * @param array
          * @return
          */
-		public FloatBuffer makeFloatBuffer(float[] array) {
-			if (array == null) throw new IllegalArgumentException();
-			ByteBuffer byteBuffer = ByteBuffer.AllocateDirect(4 * array.Length);
-			byteBuffer.Order(ByteOrder.NativeOrder());
-			FloatBuffer floatBuffer = byteBuffer.AsFloatBuffer();
-			floatBuffer.Put(array);
-			floatBuffer.Position(0);
-			return floatBuffer;
+		public byte[] MakeByteArray (float[] array) {
+			//if (array == null) throw new IllegalArgumentException();
+			var len = FSIZE * array.Length;
+			byte[] bytes = new byte[len];
+
+			Buffer.BlockCopy(array, 0, bytes, 0, len);
+
+			return bytes;
 		}
 	}
 }

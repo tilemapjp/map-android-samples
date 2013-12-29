@@ -8,9 +8,9 @@ using Android.OS;
 using Android.Content.Res;
 using Java.IO;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
-	[Activity (Label = "MapEngineOpenGL2", MainLauncher = true)]
+	[Activity (Label = "MapEngineOpenGL", MainLauncher = true)]
 	public class MainActivity : Activity
 	{
 		private MapView mMapView ;                                                        //MapView
@@ -18,16 +18,12 @@ namespace MapEngineOpenGL2
 
 		protected override void OnCreate(Bundle savedInstanceState) {
 			base.OnCreate(savedInstanceState);
+			SharedLogic.SetSharedContext (this.ApplicationContext);
 
 			//元からあるassetsフォルダに入れたtextファイルを読み込んでMapViewにセットします。
-			try {
-				var istream = Assets.Open(FILE_PATH);
-
-				//描画領域の作成
-				mMapView = new MapView(this, istream);
-				SetContentView(mMapView);
-			} catch(IOException e) {
-			}
+			//描画領域の作成
+			mMapView = new MapView(this, FILE_PATH);
+			SetContentView(mMapView);
 		}
 
 		public override bool OnCreateOptionsMenu(IMenu menu) {

@@ -2,23 +2,19 @@ using System;
 using Android.Opengl;
 using Android.Content;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
 	public class GL20SurfaceView : GLSurfaceView
 	{
-		private GL20MyRenderer mRenderer = null;        //描画処理本体
-		private Context mContext;        //Context
-		private MapView mMapView = null;        //MapView
+		private GL20MyRenderer mRenderer = null; //描画処理本体
 
 		//コンストラクタ
-		public GL20SurfaceView(Context context, MapView mapView) : base(context.ApplicationContext)
+		public GL20SurfaceView(Context context, MapController SC ) : base(context.ApplicationContext)
 		{
-			mContext = context.ApplicationContext;
-			mMapView = mapView;
 			//OpenGLES2.0の使用を宣言します。
 			SetEGLContextClientVersion(2);
 			//レンダラーを初期化し、ビューにセットします。
-			mRenderer = new GL20MyRenderer(mContext,this, mMapView);
+			mRenderer = new GL20MyRenderer(SC);
 			SetRenderer(mRenderer);
 		}
 

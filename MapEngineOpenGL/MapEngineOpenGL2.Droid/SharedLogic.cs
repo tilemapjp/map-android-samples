@@ -1,12 +1,39 @@
 using System;
-using Android.Views;
+using System.IO;
+using System.Collections.Generic;
 
-namespace MapEngineOpenGL2
+#if __ANDROID__
+using Android.Content.Res;
+using Android.Content;
+#elif __IOS__
+using MonoTouch.Foundation;
+#endif
+
+namespace MapEngineOpenGL
 {
-	public class MapControl : GestureDetector.SimpleOnGestureListener
+	public interface IMapPresenter
 	{
-		private MapView mMv;
-		public ScaleGestureDetector scaleGestureDetect = null;
+		int  Height { get; }
+		int  Width  { get; }
+		void SetMatrix(GMatrix viewmatrix, GMatrix projectionmatrix);
+	}
+
+	public class MapController
+	{
+		WeakReference _mapPresenter;
+		IMapPresenter MapPresenter {
+			get { 
+				return (IMapPresenter)_mapPresenter.Target;
+			}
+		}
+
+		private float[] _coordList;
+		public float[] CoordList {
+			get { 
+				return _coordList;
+			}
+		}
+
 		public float x = 0.0f; //視点の座標X
 		public float y = 0.0f; //視点の座標Y
 		public float z = 0.0f; //視点の座標Z
@@ -17,11 +44,10 @@ namespace MapEngineOpenGL2
 		public float scale = 200000.0f;        //縮尺値
 		public double cameradist = 0;        //カメラまでの距離
 
-		public MapControl(MapView mv) : base()
+		public MapController (IMapPresenter mapPresenter, string filename) : base()
 		{
-			mMv = mv;
-			OnScaleGesture = new OnScaleGestureLocal(this);
-			scaleGestureDetect = new ScaleGestureDetector(mMv.Context, OnScaleGesture);
+			_mapPresenter = new WeakReference (mapPresenter);
+			_coordList    = SharedLogic.CoordList (filename);
 		}
 
 		public void SetEyePosition(float x,float y,float z,float angle) {
@@ -35,65 +61,6 @@ namespace MapEngineOpenGL2
 				Math.Pow((double)this.y-(double)this.ly,2.0) +
 				Math.Pow((double)this.z-(double)this.lz,2.0)
 			);
-		}
-
-		/** 
-         * フリック移動
-         */
-		public override bool OnFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-			float dx = e2.GetX() - e1.GetX();
-			float dy = e2.GetY() - e1.GetY();
-			Console.WriteLine ("Map: OnFling : {0},{1}", dx, dy);
-			return true;
-		}
-
-		/**
-         * シングルタップ
-         */
-		public override bool OnSingleTapConfirmed(MotionEvent ev) {
-			Console.WriteLine ("Map: OnSingleTapConfirmed");
-			return true;
-		}
-
-		/*
-		 *
-         * シングルタップ（ダブルタップ時も呼ばれる）
-         */
-		public override bool OnSingleTapUp(MotionEvent ev) {
-			Console.WriteLine ("Map: OnSingleTapUp");
-			return true;
-		}
-
-
-		/**
-         * ダブルタップ
-         */
-		public override bool OnDoubleTap(MotionEvent ev) {
-			Console.WriteLine ("Map: OnDoubleTap");
-			return true;
-		}
-
-		/**
-         * ダブルタップ中イベント
-         */
-		public override bool OnDoubleTapEvent(MotionEvent ev) {
-			Console.WriteLine ("Map: OnDoubleTapEvent");
-			return true;
-		}
-
-		/**
-         * 押下
-         */
-		public override bool OnDown(MotionEvent ev) {
-			Console.WriteLine ("Map: OnDown");
-			return true;
-		}
-
-		/**
-         * 長押し
-         */
-		public override void OnLongPress(MotionEvent ev) {
-			Console.WriteLine ("Map: OnLongPress");
 		}
 
 		/**
@@ -116,7 +83,7 @@ namespace MapEngineOpenGL2
 			posEyeZ = z - lz;
 			near = this.cameradist / 2;
 
-			int height = mMv.Height;
+			int height = MapPresenter.Height;
 
 			//引数で渡された座標を画面中心からの相対座標に変換
 			deviceX = deviceX*this.cameradist/height;
@@ -169,12 +136,12 @@ namespace MapEngineOpenGL2
 		/**
          * ドラッグ
          */
-		public override bool OnScroll(MotionEvent e1, MotionEvent e2,float distanceX, float distanceY) {
+		public void OnScroll(float x2, float y2, float distanceX, float distanceY) {
 			//移動元と移動先のデバイス座標取得
-			float x2 = e2.GetX();
-			float y2 = e2.GetY();
 			float x1 = x2 - distanceX;
 			float y1 = y2 - distanceY;
+
+			Console.WriteLine ("Scroll: x1: {0} y1: {1} x2: {2} y2: {3} dX: {4} dY: {5}", x1, y1, x2, y2, distanceX, distanceY);
 
 			//デバイスからワールド座標に変換
 			GVector3D pos1 = DeviceCoord2MapCoord(x1, y1, 0, 0);
@@ -191,10 +158,9 @@ namespace MapEngineOpenGL2
 			ly -= (float)dy;
 
 			SetPosition();
-			return true;
 		}
 
-		/*		*
+		/*				*
          * 位置を変更する
          */
 		public void SetPosition() {
@@ -208,8 +174,8 @@ namespace MapEngineOpenGL2
 			GMatrix viewmatrix = new GMatrix();
 			viewmatrix.SetLook(x, y, z, lx, ly, lz, 0.0f, 1.0f, 0.0f);
 
-			int width = mMv.Width;
-			int height = mMv.Height;
+			int width = MapPresenter.Width;
+			int height = MapPresenter.Height;
 
 			//投影・視点変換行列の作成
 			GMatrix projectionmatrix = new GMatrix();
@@ -224,62 +190,80 @@ namespace MapEngineOpenGL2
 			projectionmatrix.Frustum(left, right, bottom, top, near, far);
 
 			//行列を設定する
-			mMv.GetSurfaceView().SetMatrix(viewmatrix, projectionmatrix);
-		}
-
-		/**
-         * 押下（押下時のドラッグなどでは呼ばれない）
-         */
-		public override void OnShowPress(MotionEvent ev) {
-			Console.WriteLine ("Map: OnShowPress");
+			MapPresenter.SetMatrix(viewmatrix, projectionmatrix);
 		}
 
 		/**
          * 縮尺変更:OnScaleGestureから
          */
-		private bool OnScale(ScaleGestureDetector detector) {
-			z /= detector.ScaleFactor;
+		public void OnScale(float scaleFactor) {
+			z /= scaleFactor;
 			SetPosition ();
-			return true;
 		}
 
-		/**
-         * ピンチのジェスチャー取得
-         */
-		private OnScaleGestureLocal OnScaleGesture;
-		private class OnScaleGestureLocal : ScaleGestureDetector.SimpleOnScaleGestureListener
+		public void Release() 
 		{
-			WeakReference _mC;
-			public OnScaleGestureLocal (MapControl mC) : base()
-			{
-				_mC = new WeakReference(mC);
+			_mapPresenter = null;
+			_coordList = null;
+		}
+	}
+
+	public class SharedLogic
+	{
+#if __ANDROID__
+		static Context _context;
+		private static Context context {
+			get { 
+				return _context;
+			}
+		}
+#endif
+
+		private SharedLogic ()
+		{
+		}
+
+#if __ANDROID__
+		public static void SetSharedContext(Context context) {
+			_context = context;
+		}
+#endif
+
+		public static float[] CoordList(string filename) {
+			StreamReader isreader;
+			var strList = new List<string[]>();
+
+			//ファイル読み込みなど操作するときはtry{}catch{}で囲みます。
+			try{
+#if __ANDROID__
+				var istream = context.Assets.Open(filename);
+				isreader = new StreamReader(istream);
+#elif __IOS__
+				var bundlePath = NSBundle.MainBundle.BundlePath + "/" + filename;
+				isreader = new StreamReader(bundlePath);
+#endif
+				string str;
+				while ((str = isreader.ReadLine()) != null) {
+					var split_str = str.Split('\t');
+					strList.Add(split_str);
+				}
+				isreader.Close();
+			} catch {
+				Console.WriteLine("open and input text : 読み込み失敗");
 			}
 
-			/**
-             * 縮尺変更開始
-             */
-			public override bool OnScaleBegin (ScaleGestureDetector detector) 
-			{
-				Console.WriteLine ("Map: OnScaleBegin : {0}", detector.ScaleFactor);
-				return base.OnScaleBegin (detector);
+			//読み込んだファイルをFloat配列へ変換する
+			float[] res = new float[strList.Count * 3];  //x,y,zの順に格納されたfloat配列
+			for(int i=0; i<strList.Count; i++){
+				var str = strList [i];
+				res[i * 3 + 0] = float.Parse(str[0]);    //X座標
+				res[i * 3 + 1] = float.Parse(str[1]);    //Y座標
+				res[i * 3 + 2] = 0.0f;                   //Z座標
 			}
+			strList.Clear ();
 
-			/**
-             * 縮尺変更終了
-             */
-			public override void OnScaleEnd(ScaleGestureDetector detector) {
-				Console.WriteLine ("Map: OnScaleEnd : {0}", detector.ScaleFactor);
-				base.OnScaleEnd (detector);
-			}
-
-			/**
-             * 縮尺変更
-             */
-			public override bool OnScale(ScaleGestureDetector detector) {
-				Console.WriteLine ("Map: OnScale : {0}", detector.ScaleFactor);
-				return ((MapControl)_mC.Target).OnScale (detector);
-			}
-		};
+			return res;
+		}
 	}
 }
 

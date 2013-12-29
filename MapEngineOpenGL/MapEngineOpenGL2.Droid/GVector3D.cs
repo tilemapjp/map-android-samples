@@ -1,6 +1,6 @@
 using System;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
 	public class GVector3D
 	{

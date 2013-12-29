@@ -8,7 +8,7 @@
     <ProjectGuid>{23E5612E-1349-4D02-97B8-826E69A05099}</ProjectGuid>
     <ProjectTypeGuids>{EFBA0AD7-5A72-4C68-AF49-83D382785DCF};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
-    <RootNamespace>MapEngineOpenGL2</RootNamespace>
+    <RootNamespace>MapEngineOpenGL</RootNamespace>
     <AndroidApplication>True</AndroidApplication>
     <AndroidResgenFile>Resources\Resource.designer.cs</AndroidResgenFile>
     <AndroidResgenClass>Resource</AndroidResgenClass>
@@ -46,6 +46,7 @@
     <Reference Include="System.Core" />
     <Reference Include="Mono.Android" />
     <Reference Include="Mono.Android.Support.v4" />
+    <Reference Include="OpenTK-1.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MainActivity.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="GL20SurfaceView.cs" />
     <Compile Include="GL20MyRenderer.cs" />
     <Compile Include="Shader.cs" />
+    <Compile Include="SharedLogic.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\AboutResources.txt" />

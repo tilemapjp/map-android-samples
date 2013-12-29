@@ -1,8 +1,14 @@
 using System;
-using Android.Opengl;
-using Java.Lang;
+#if __ANDROID__
+using OpenTK.Platform.Android;
+#elif __IOS__
+using OpenTK.Platform.iPhoneOS;
+#endif
+using OpenTK;
+using OpenTK.Graphics;
+using OpenTK.Graphics.ES20;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
 	public class Shader
 	{
@@ -35,7 +41,7 @@ namespace MapEngineOpenGL2
          */
 		public int InitShaders() {
 			int program = CreateProgram();
-			GLES20.GlUseProgram(program);
+			GL.UseProgram (program);
 			return program;
 		}
 
@@ -45,28 +51,28 @@ namespace MapEngineOpenGL2
          */
 		public int CreateProgram() {
 			// シェーダオブジェクトを作成する
-			int vertexShader = loadShader(GLES20.GlVertexShader, this.VSHADER_SOURCE);
-			int fragmentShader = loadShader(GLES20.GlFragmentShader, this.FSHADER_SOURCE);
+			int vertexShader   = LoadShader((int)All.VertexShader,   this.VSHADER_SOURCE);
+			int fragmentShader = LoadShader((int)All.FragmentShader, this.FSHADER_SOURCE);
 
 			// プログラムオブジェクトを作成する
-			int program = GLES20.GlCreateProgram();
+			var program = GL.CreateProgram ();
 			if (program == 0) {
-				throw new RuntimeException("failed to create program");
+				//throw new RuntimeException("failed to create program");
 			}
 
 			// シェーダオブジェクトを設定する
-			GLES20.GlAttachShader(program, vertexShader);
-			GLES20.GlAttachShader(program, fragmentShader);
+			GL.AttachShader (program, vertexShader);
+			GL.AttachShader (program, fragmentShader);
 
 			// プログラムオブジェクトをリンクする
-			GLES20.GlLinkProgram(program);
+			GL.LinkProgram (program);
 
 			// リンク結果をチェックする
 			int[] linked = new int[1];
-			GLES20.GlGetProgramiv(program, GLES20.GlLinkStatus, linked, 0);
-			if (linked[0] != GLES20.GlTrue) {
-				string error = GLES20.GlGetProgramInfoLog(program);
-				throw new RuntimeException("failed to link program: " + error);
+			GL.GetProgram(program, All.LinkStatus, linked);
+			if (linked[0] != (int)All.True) {
+				var error = GL.GetProgramInfoLog (program);
+				//throw new RuntimeException("failed to link program: " + error);
 			}
 			return program;
 		}
@@ -77,22 +83,22 @@ namespace MapEngineOpenGL2
          * @param source
          * @return
          */
-		public int loadShader(int type, string source) {
+		public int LoadShader(int type, string source) {
 			// シェーダオブジェクトを作成する
-			int shader = GLES20.GlCreateShader(type);
+			var shader = GL.CreateShader((All)type);
 			if (shader == 0) {
-				throw new RuntimeException("unable to create shader");
+				//throw new RuntimeException("unable to create shader");
 			}
 			// シェーダのプログラムを設定する
-			GLES20.GlShaderSource(shader, source);
+			GL.ShaderSource (shader, source);
 			// シェーダをコンパイルする
-			GLES20.GlCompileShader(shader);
+			GL.CompileShader (shader);
 			// コンパイル結果を検査する
 			int[] compiled = new int[1];
-			GLES20.GlGetShaderiv(shader, GLES20.GlCompileStatus, compiled, 0);
-			if (compiled[0] != GLES20.GlTrue) {
-				string error = GLES20.GlGetShaderInfoLog(shader);
-				throw new RuntimeException("failed to compile shader: " + error);
+			GL.GetShader (shader, All.CompileStatus, compiled);
+			if (compiled[0] != (int)All.True) {
+				var error = GL.GetShaderInfoLog (shader);
+				//throw new RuntimeException("failed to compile shader: " + error);
 			}
 			return shader;
 		}

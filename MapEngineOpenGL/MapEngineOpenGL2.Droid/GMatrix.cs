@@ -1,11 +1,18 @@
 using System;
-using Android.Opengl;
+#if __ANDROID__
+using OpenTK.Platform.Android;
+#elif __IOS__
+using OpenTK.Platform.iPhoneOS;
+#endif
+using OpenTK;
+using OpenTK.Graphics;
+using OpenTK.Graphics.ES20;
 
-namespace MapEngineOpenGL2
+namespace MapEngineOpenGL
 {
 	public class GMatrix
 	{
-		public float[] matrix = new float[16];        //行列
+		public Matrix4 matrix;       //行列
 
 		public GMatrix() {
 			Identity();
@@ -15,7 +22,7 @@ namespace MapEngineOpenGL2
          * 単位行列
          */
 		public void Identity() {
-			Matrix.SetIdentityM(matrix, 0);
+			matrix = Matrix4.Identity;
 		}
 
 		/**
@@ -26,7 +33,7 @@ namespace MapEngineOpenGL2
          * @param z
          */
 		public void Rotate(float angle, float x, float y, float z) {
-			Matrix.RotateM(matrix, 0, -angle, x, y, z);
+			matrix = Matrix4.Mult (Matrix4.CreateFromAxisAngle(new Vector3 (x, y, z), angle), matrix);
 		}
 
 		/**
@@ -37,18 +44,9 @@ namespace MapEngineOpenGL2
          * @param res
          */
 		public void TransformPoint(double x, double y, double z, GVector3D res) {
-			res.x =   (matrix[4*0 + 0] * x)
-			            + (matrix[4*1 + 0] * y)
-			            + (matrix[4*2 + 0] * z)
-			            +  matrix[4*3 + 0];
-			res.y =   (matrix[4*0 + 1] * x)
-			            + (matrix[4*1 + 1] * y)
-			            + (matrix[4*2 + 1] * z)
-			            +  matrix[4*3 + 1];
-			res.z =   (matrix[4*0 + 2] * x)
-			            + (matrix[4*1 + 2] * y)
-			            + (matrix[4*2 + 2] * z)
-			            +  matrix[4*3 + 2];
+			res.x = matrix.M11 * x + matrix.M21 * y + matrix.M31 * z + matrix.M41;
+			res.y = matrix.M12 * x + matrix.M22 * y + matrix.M32 * z + matrix.M42;
+			res.z = matrix.M13 * x + matrix.M23 * y + matrix.M33 * z + matrix.M43;
 		}
 
 		/**
@@ -56,7 +54,7 @@ namespace MapEngineOpenGL2
          * @param m
          */
 		public void Copy(GMatrix m) {
-			Array.Copy (matrix, m.matrix, 16);
+			m.matrix = matrix;
 		}
 
 		/**
@@ -71,7 +69,7 @@ namespace MapEngineOpenGL2
          * @param upZ
          */
 		public void SetLook( float eyeX, float eyeY, float eyeZ, float centerX, float centerY, float centerZ, float upX, float upY, float upZ) {
-			Matrix.SetLookAtM(this.matrix, 0, eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ);
+			matrix = Matrix4.LookAt (eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ);
 		}
 
 		/**
@@ -84,7 +82,7 @@ namespace MapEngineOpenGL2
          * @param far
          */
 		public void Frustum(float left, float right, float bottom, float top, float near, float far) {
-			Matrix.FrustumM(this.matrix, 0, left, right, bottom, top, near, far);
+			matrix = Matrix4.CreatePerspectiveOffCenter (left, right, bottom, top, near, far);
 		}
 	}
 }
